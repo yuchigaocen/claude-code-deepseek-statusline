@@ -44,6 +44,9 @@ function newestTranscript() {
 const transcript = arg('transcript', newestTranscript() ?? join(claudeDir, 'projects', 'demo', 'demo.jsonl'));
 const cwd = arg('cwd', process.cwd());
 const model = arg('model', 'deepseek-flash[1m]');
+// 上下文条读的是 current_usage（上一次调用的用量），所以让 --tokens 直接决定它，
+// 不然改 --tokens 会发现状态栏上的百分比没动。
+const tokens = Number(arg('tokens', '42000'));
 
 const payload = {
   hook_event_name: 'Status',
@@ -55,9 +58,9 @@ const payload = {
   version: '2.1.283',
   output_style: { name: 'default' },
   context_window: {
-    total_input_tokens: Number(arg('tokens', '42000')),
+    total_input_tokens: tokens,
     context_window_size: Number(arg('window', '1000000')),
-    current_usage: { input_tokens: 12000, output_tokens: 800, cache_creation_input_tokens: 0, cache_read_input_tokens: 30000 },
+    current_usage: { input_tokens: tokens, output_tokens: 800, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
   },
   cost: { total_cost_usd: 0, total_duration_ms: 0, total_api_duration_ms: 0, total_lines_added: 0, total_lines_removed: 0 },
 };

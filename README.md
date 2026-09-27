@@ -3,10 +3,15 @@
 Adds a **DeepSeek** segment to the Claude Code status line: peak/off-peak billing state with a countdown,
 the live Beijing clock, the official-rate cost of the session, and your account balance.
 
+![preview](docs/preview.png)
+
 ```
-[deepseek-flash] ███░░░░░░░ 25.0% (253.7k/1.0M) | my-project | ⏱️ 5h 17m | cost +¥0.0084 ¥3.10  bal ¥42.00 12s  v0.1.0
-◐ Bash: npm test | ✓ Bash ×10 | ✓ Edit ×8 | 🟢DS off 12h37m36s | 20:22:23
+[deepseek-flash] ███░░░░░░░ 33% (254k/1.0M) | my-app | ⏱️ 8h 33m | cost +¥0.0084 ¥3.10  bal ¥42.00 12s  v0.1.0
+◐ Bash: ... | ✓ Edit ×8 | ✓ Bash ×8 | ✓ Write ×2 | ✓ Read ×1 | 🟢DS off 9h20m21s | 23:39:38
 ```
+
+*(The preview image and the text above are the same render; `docs/preview.zh.png` is the Chinese version.
+The cost and balance in them are made-up sample values — see `tools/make-preview.mjs`.)*
 
 The money part sits at the end of the **first** line (next to the session duration) — the delta since the last
 refresh, the cumulative session cost, the balance with the age of that reading, and the plugin version. The
