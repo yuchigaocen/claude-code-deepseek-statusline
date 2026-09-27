@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-code-deepseek-statusline",
+  "description": "DeepSeek statusline for Claude Code: peak hours, live clock, official-price cost and balance",
+  "owner": {
+    "name": "yuchigaocen"
+  },
+  "plugins": [
+    {
+      "name": "ds-statusline",
+      "source": "./",
+      "description": "Adds a DeepSeek segment to the Claude Code status line (peak/off-peak countdown, Beijing clock, official-rate session cost, account balance) on top of the bundled claude-hud.",
+      "category": "monitoring",
+      "keywords": [
+        "deepseek",
+        "statusline",
+        "cost",
+        "peak-hours"
+      ]
+    }
+  ]
+}

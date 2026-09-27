@@ -1,0 +1,12 @@
+# 一律 LF：仓库里和检出后都是 LF，跟上游 claude-hud 的文件逐字节一致，
+# 也避免 #!/usr/bin/env node 的脚本在 macOS/Linux 上因为 \r 而变成"bad interpreter"。
+* text=auto eol=lf
+
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+
+# 无二进制文件；真加了图片之类，在这里标 binary

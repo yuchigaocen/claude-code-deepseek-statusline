@@ -1,0 +1,17 @@
+# 运行期缓存：余额、费用增量基线、状态栏帧缓存。**不入库**（含本机会话路径与账号余额）
+cache/
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# 依赖与日志
+node_modules/
+*.log
+npm-debug.log*
+
+# 本地试验产物（tools/make-sample-stdin.mjs 的输出之类）
+*.sample.json

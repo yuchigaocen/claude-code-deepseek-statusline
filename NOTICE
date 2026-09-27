@@ -1,0 +1,52 @@
+# NOTICE
+
+This project contains code from other projects, listed below. The original license
+terms apply to those parts; they are redistributed here unmodified.
+
+---
+
+## claude-hud — bundled, unmodified
+
+The status-line HUD itself (context bar, git status, tool/agent/todo lines, i18n,
+configuration handling) is **not** ours. It is bundled verbatim in
+[`vendor/claude-hud/`](vendor/claude-hud/) and driven through its public entry points
+(`main({ readStdin, loadConfig })`); we do not patch it.
+
+| | |
+| --- | --- |
+| Project | <https://github.com/jarrodwatts/claude-hud> |
+| Author | Jarrod Watts |
+| License | MIT |
+| Copyright | Copyright (c) 2026 Jarrod Watts |
+| Bundled version | 0.8.0 (tag `v0.8.0`) |
+| Full license text | [`vendor/claude-hud/LICENSE`](vendor/claude-hud/LICENSE) |
+| Provenance record | [`vendor/claude-hud/VENDORED.md`](vendor/claude-hud/VENDORED.md) |
+
+Only `dist/**/*.js` was taken (the build output needed at runtime); no source files
+were modified. `VENDORED.md` records the exact commit so the tree can be diffed
+against upstream.
+
+To update the bundled copy:
+
+```sh
+node tools/vendor-upstream.mjs --tag vX.Y.Z
+```
+
+---
+
+## Our own code
+
+Everything outside `vendor/` — the DeepSeek peak/off-peak logic, the official-rate
+cost accounting, the balance handling, the status-line entry point, the installer and
+the `/ds-*` commands — is:
+
+MIT License, Copyright (c) 2026 yuchigaocen — see [`LICENSE`](LICENSE).
+
+### On the "cost + balance" segment layout
+
+The layout of the money segment (a delta since the last refresh, the cumulative
+session cost, the balance with the age of that reading, and the plugin version, all
+on the first line) follows the convention that existing DeepSeek status-line monitors
+use, so that switching to this project does not change what people are used to. The
+numbers behind it are computed here from DeepSeek's official price list; no code from
+those monitors is included.
