@@ -72,6 +72,24 @@ actually installs it):
 /ds-setup
 ```
 
+### The HUD's own config
+
+The bundled claude-hud reads `~/.claude/plugins/claude-hud/config.json`. The installer copies
+[`examples/claude-hud.config.json`](examples/claude-hud.config.json) there **only when that file does not
+exist**, so an existing setup is never touched (`--no-config` skips it entirely). Upstream's own defaults are
+an expanded layout with no tool line; this default is the compact two-line layout the preview shows.
+
+Knobs worth knowing — all of them live in that file:
+
+| Key | Effect |
+| --- | --- |
+| `language` | `en` / `zh-Hans` / `zh-Hant`; also switches our segment's labels |
+| `lineLayout` | `compact` (two lines) or `expanded` (one element per line) |
+| `pathLevels` | how much of the project path to show (`1` = last segment only) |
+| `display.modelOverride` | force the model label — the way to drop a suffix like `[1m]`: set it to `deepseek-flash` (update it if you switch models) |
+| `gitStatus.enabled` | show the branch / dirty marker on the first line (off in the default) |
+| `display.showTools` / `showAgents` / `showTodos` | the activity lines under the header |
+
 ### Verify
 
 ```sh

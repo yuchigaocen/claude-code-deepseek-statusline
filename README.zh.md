@@ -63,6 +63,23 @@ node install.mjs
 /ds-setup
 ```
 
+### HUD 自己的配置
+
+内嵌的 claude-hud 会读 `~/.claude/plugins/claude-hud/config.json`。安装器**只在这个文件不存在时**把
+[`examples/claude-hud.config.json`](examples/claude-hud.config.json) 拷过去，已有配置一律不动（`--no-config` 完全跳过）。
+上游自己的默认是 expanded 布局且不显示工具行；这份默认就是预览图那样的紧凑两行布局。
+
+值得知道的几个旋钮（都在这个文件里）：
+
+| 键 | 作用 |
+| --- | --- |
+| `language` | `en` / `zh-Hans` / `zh-Hant`；同时决定我们那段的标签语言 |
+| `lineLayout` | `compact`（两行）或 `expanded`（每个元素一行） |
+| `pathLevels` | 项目路径显示几段（`1` = 只显示最后一段） |
+| `display.modelOverride` | 强制模型名 —— 去掉 `[1m]` 这类后缀就靠它：设成 `deepseek-flash`（换模型记得跟着改） |
+| `gitStatus.enabled` | 第 1 行是否显示分支/脏标记（默认关） |
+| `display.showTools` / `showAgents` / `showTodos` | 表头下面那几行活动信息 |
+
 ### 验证
 
 ```sh

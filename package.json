@@ -1,6 +1,6 @@
 {
   "name": "claude-code-deepseek-statusline",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DeepSeek peak/off-peak hours, live Beijing clock, official-price session cost and account balance in the Claude Code status line",
   "license": "MIT",
   "author": "yuchigaocen",

@@ -7,10 +7,15 @@
  *   node install.mjs --dest <dir>         换安装目录
  *   node install.mjs --refresh-interval 2 定时刷新间隔（秒，默认 1；传 0 = 不加定时器）
  *   node install.mjs --no-statusline      只拷文件，不动 settings.json
+ *   node install.mjs --no-config          不自建 HUD 配置（见下）
  *
  * 为什么需要这一步：Claude Code 的插件系统**不能**声明 statusLine（它只是 settings 键，
  * 插件清单里写它只会被警告并忽略），所以状态栏必须由用户侧的 settings.json 接上。
  * 本脚本只改 `statusLine` 这一个键，**不碰 hooks**，并会先备份。
+ *
+ * 顺带处理内嵌 HUD 的配置（`<claude>/plugins/claude-hud/config.json`）：**只有它不存在时才写一份**
+ * （紧凑布局 + 工具行 + 英文），因为上游默认是 expanded 布局且不显示工具行 —— 不写的话，
+ * 陌生人装完看到的样子会跟 README 的预览图对不上，容易以为装坏了。已有配置**一律不动**。
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -27,6 +32,10 @@ const opt = (name, fallback = null) => {
 
 const DRY = flag('dry-run');
 const SKIP_STATUSLINE = flag('no-statusline');
+const SKIP_CONFIG = flag('no-config');
+
+// 默认 HUD 配置的唯一来源就是 examples/ 里那份（安装时读它，避免两处漂移）
+const EXAMPLE_HUD_CONFIG = join(ROOT, 'examples', 'claude-hud.config.json');
 const refreshArg = opt('refresh-interval', '1');
 const refreshInterval = Number.parseInt(refreshArg, 10);
 if (Number.isNaN(refreshInterval) || refreshInterval < 0) {
@@ -90,7 +99,25 @@ if (!DRY) {
 }
 say('✅', `拷入 ${copied.filter((c) => statSync(join(ROOT, c)).isDirectory()).map((c) => `${c}/`).join(' ')} 等 ${copied.length} 项`);
 
-// ── 3. 接上 statusLine ──
+// ── 3. 内嵌 HUD 的配置（只在不存在时写一份）──
+const HUD_CONFIG = join(CLAUDE_DIR, 'plugins', 'claude-hud', 'config.json');
+if (SKIP_CONFIG) {
+  say('⏭', '--no-config：不检查 HUD 配置');
+} else if (existsSync(HUD_CONFIG)) {
+  say('ℹ️', `已有 HUD 配置，原样保留：${HUD_CONFIG}`);
+} else if (!existsSync(EXAMPLE_HUD_CONFIG)) {
+  say('⚠️', `找不到 ${EXAMPLE_HUD_CONFIG}，跳过 HUD 配置（状态栏仍可用，但外观是上游默认）`);
+} else {
+  if (!DRY) {
+    mkdirSync(dirname(HUD_CONFIG), { recursive: true });
+    writeFileSync(HUD_CONFIG, readFileSync(EXAMPLE_HUD_CONFIG, 'utf8'));
+  }
+  say('✅', `写了默认 HUD 配置（紧凑布局 + 工具行 + 英文）`);
+  log(`     ${HUD_CONFIG}`);
+  log('     改外观/语言就编辑它；删掉它则回到上游默认（expanded 布局、不显示工具行）。');
+}
+
+// ── 4. 接上 statusLine ──
 const command = `"${NODE}" "${join(DEST, 'scripts', 'statusline.mjs')}"`;
 if (SKIP_STATUSLINE) {
   say('⏭', '--no-statusline：跳过 settings.json，请自行把下面这行写进 statusLine.command：');
@@ -129,7 +156,7 @@ if (SKIP_STATUSLINE) {
   if (hookKeys.length) say('ℹ️', `hooks 原样保留：${hookKeys.join(' / ')}`);
 }
 
-// ── 4. 收尾 ──
+// ── 5. 收尾 ──
 log('');
 if (DRY) {
   log('  dry-run 结束。去掉 --dry-run 就会真的写盘。');

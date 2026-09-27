@@ -1,0 +1,19 @@
+{
+  "language": "en",
+  "lineLayout": "compact",
+  "elementOrder": ["project", "context", "tools", "agents", "todos"],
+  "display": {
+    "showModel": true,
+    "showProject": true,
+    "showContextBar": true,
+    "showCost": false,
+    "showUsage": false,
+    "showTools": true,
+    "showAgents": true,
+    "showTodos": true,
+    "showDuration": true,
+    "showSessionName": false,
+    "contextValue": "both"
+  },
+  "gitStatus": { "enabled": false }
+}

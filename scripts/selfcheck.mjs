@@ -118,6 +118,18 @@ check('我们没有改上游文件', () => {
   ok(/没有改动/.test(vendored), 'VENDORED.md 缺少"没有改动"说明');
 });
 
+// ── 3.5 默认配置示例（安装器会在配置不存在时原样写入它）──
+console.log('默认配置示例');
+check('examples/claude-hud.config.json 存在且是想要的那份', () => {
+  const cfg = JSON.parse(readFileSync(join(ROOT, 'examples', 'claude-hud.config.json'), 'utf8'));
+  eq(cfg.lineLayout, 'compact', 'lineLayout');
+  eq(cfg.display.showTools, true, 'showTools');
+  eq(cfg.display.showCost, false, 'showCost（费用由我们接管）');
+  eq(cfg.display.showUsage, false, 'showUsage（DeepSeek 没有额度接口）');
+  ok(Array.isArray(cfg.elementOrder) && !cfg.elementOrder.includes('deepseek'), 'elementOrder 不该再引用 fork 的 deepseek 元素');
+  return 'compact + 工具行，且不引用上游不认识的元素';
+});
+
 // ── 4. 状态栏入口真的能画 ──
 console.log('状态栏入口');
 const sample = execFileSync(process.execPath, [join(ROOT, 'tools', 'make-sample-stdin.mjs'), '--transcript', join(ROOT, 'nope.jsonl')], { encoding: 'utf8' });
@@ -132,10 +144,11 @@ check('空 stdin 时静默退出（Claude Code 校验设置时会这样调）', 
   const out = execFileSync(process.execPath, [join(ROOT, 'scripts', 'statusline.mjs')], { input: '', encoding: 'utf8' });
   return eq(out, '', '输出');
 });
-check('安装器 dry-run 能跑', () => {
+check('安装器 dry-run 能跑，并交代 HUD 配置怎么处理', () => {
   const out = execFileSync(process.execPath, [join(ROOT, 'install.mjs'), '--dry-run'], { encoding: 'utf8' });
   ok(/statusLine/.test(out), 'dry-run 输出里没有 statusLine');
-  return 'ok';
+  ok(/HUD 配置/.test(out), 'dry-run 输出里没说 HUD 配置是写还是保留');
+  return /已有 HUD 配置/.test(out) ? '本机已有配置 → 保留' : '本机无配置 → 会写一份默认';
 });
 
 // ── 汇总 ──
