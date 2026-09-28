@@ -212,6 +212,12 @@ Design rationale, failure modes, performance budget and the maintenance checklis
   provider's profile. Put `statusLine` in the common config, not just in `settings.json`
   ([INSTALL.md](INSTALL.md#two-things-the-installer-cannot-see)); the timestamped backup next to `settings.json` still has
   the value to restore.
+- **A model name or context window that looks wrong is your launcher's config, not this plugin.** Both come
+  from what Claude Code reports (`model.display_name`, `context_window.context_window_size`), and that comes from
+  the model environment your launcher sets — `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_*_MODEL*`, or a provider
+  switcher's profile (CC Switch and similar). Fix it in the switcher's own provider entry: editing
+  `settings.json` alone can be overwritten at the next provider switch. If you only want the *label* to read
+  differently, `display.modelOverride` in the HUD config does that without touching the launcher.
 - `scripts/ds.mjs` prices the session from Claude Code's transcript. It cannot see traffic that never
   reached a transcript (other tools using the same key), so it is *session* cost, not account spend.
 

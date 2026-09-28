@@ -191,6 +191,11 @@ statusline 载荷，因为里面有 `cost.total_duration_ms` 这种每秒都变�
   通常是因为它用自己的**公共配置 + 当前供应商档案**重新合成这个文件。把 `statusLine` 写进公共配置，
   而不是只写进 `settings.json`（见 [INSTALL.md](INSTALL.md#two-things-the-installer-cannot-see)）；旁边那份带时间戳的
   备份里仍然存着要恢复的值。
+- **模型名或上下文窗口显示得不对，那是启动器（切换器）的配置，不是本插件的问题。** 这两个值都来自
+  Claude Code 报给状态栏的 `model.display_name` 与 `context_window.context_window_size`，而它们出自启动器
+  设置的那几个模型环境变量 —— `ANTHROPIC_MODEL`、`ANTHROPIC_DEFAULT_*_MODEL*`，或供应商切换器的档案
+  （CC Switch 之类）。要改就改**切换器里那条供应商配置**：只改 `settings.json` 可能在下一次切供应商时被覆盖。
+  如果你只想让**标签**换个写法，改 HUD 配置里的 `display.modelOverride` 即可，不必动启动器。
 - `scripts/ds.mjs` 是从 Claude Code 的转录算的，看不到没进转录的流量（别的工具用同一个 key），
   所以它是**会话**费用，不是账户总支出。
 
