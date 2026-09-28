@@ -26,7 +26,10 @@ const require = createRequire(import.meta.url);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const VENDOR = join(ROOT, 'vendor', 'claude-hud', 'dist');
-const FRAME_CACHE = join(ROOT, 'cache', 'frame.json');
+// DS_CACHE_DIR 与 ds-usage.cjs 的同名旋钮对齐：自检把缓存指到沙盒，就能整条链路跑完而不碰真实 cache/
+const FRAME_CACHE = process.env.DS_CACHE_DIR?.trim()
+  ? join(process.env.DS_CACHE_DIR.trim(), 'frame.json')
+  : join(ROOT, 'cache', 'frame.json');
 const FRAME_TTL_MS = 30e3;
 const PEAK = require(join(HERE, 'peak-hours.cjs'));
 const DS = require(join(HERE, 'ds-usage.cjs'));

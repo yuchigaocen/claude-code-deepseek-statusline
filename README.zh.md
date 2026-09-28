@@ -36,7 +36,15 @@
 - **Node ≥ 18**
 - **Claude Code** 走 DeepSeek 后端：`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`，
   密钥放在 `settings.json` 的 `ANTHROPIC_AUTH_TOKEN`
-- 只有余额那一段需要能读到密钥（也可用环境变量 `DEEPSEEK_API_KEY`），其余功能不依赖它
+- 只有余额那一段需要密钥，且要的是 **DeepSeek 平台密钥**。查找顺序：`DEEPSEEK_API_KEY` →
+  `ANTHROPIC_AUTH_TOKEN` → `ANTHROPIC_API_KEY`，每个都先看进程环境变量，再看托管配置、
+  `~/.claude/settings.local.json`、`~/.claude/settings.json`、项目级 `./.claude/settings{.local,}.json`。
+  找到的每把**不同**的密钥都会按这个顺序依次试。其余功能不依赖密钥。
+
+  如果你是通过**中转站**用 DeepSeek（`ANTHROPIC_BASE_URL` 不是 `api.deepseek.com`），那
+  `ANTHROPIC_AUTH_TOKEN` 里是中转站的 token，DeepSeek 的余额接口会用 401 拒掉它 —— 换多少来源都没用，
+  得把真正的 DeepSeek 平台密钥放进 `DEEPSEEK_API_KEY`。余额显示不出来时那一段会写明原因
+  （`余额 n/a(401)`），`node scripts/ds.mjs --balance` 还能打一份完整体检。
 
 ## 安装
 
@@ -110,6 +118,7 @@ node uninstall.mjs --keep-files
 | `/ds-usage` | 大盘：余额、本会话费用（峰/谷拆分）、token、缓存命中率、当前档费率 |
 | `/ds-peak` | 只看峰谷状态、北京时间、当档费率 |
 | `scripts/ds.mjs --short / --json` | 一行 / 机器可读（写脚本方便） |
+| `scripts/ds.mjs --balance` | **余额体检**：生效的 base URL、每个密钥来源（已打码）、每次尝试的 HTTP 状态、退避、以及具体修法。加 `--cached` 可跳过联网探测 |
 
 ## 计费口径
 
@@ -148,6 +157,9 @@ scripts/statusline.mjs        入口：跑 HUD，再把我们这段拼上去
 
 余额由**游离的后台进程**抓取 —— 状态栏永远不等网络。1 秒默认值的实测开销：空闲约 **5% 单核**，
 连续编辑文件时约 **8–11%**。嫌高就调大 `refreshInterval`，段还在，只是秒数会跳着走。
+
+抓失败会**退避**而不是一直重试（被拒 6 小时、响应不可解析 30 分钟、网络错 30 秒；没有密钥就压根不试）。
+换一把正确的密钥立刻生效 —— 因为退避是绑在"失败的哪把密钥"的指纹上的。
 
 帧的失效判定用转录的 `size`+`mtime`、HUD 配置的 `mtime`、模型 id 与上下文窗口 —— **刻意不**哈希整包
 statusline 载荷，因为里面有 `cost.total_duration_ms` 这种每秒都变的计时器，拿它当 key 会让缓存形同虚设。

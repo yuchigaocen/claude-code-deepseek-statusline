@@ -41,8 +41,16 @@ This project prices every assistant message with the official DeepSeek rates usi
 - **Node ≥ 18**
 - **Claude Code** with a DeepSeek backend — i.e. `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`
   and your DeepSeek key in the `ANTHROPIC_AUTH_TOKEN` env var of `settings.json`
-- The balance line needs that key readable from `settings.json` (or set `DEEPSEEK_API_KEY`). Everything
-  else works without it.
+- The balance line needs a **DeepSeek platform key**. It is looked for in many places, in this order:
+  `DEEPSEEK_API_KEY` → `ANTHROPIC_AUTH_TOKEN` → `ANTHROPIC_API_KEY`, first in the process environment, then
+  in managed settings, `~/.claude/settings.local.json`, `~/.claude/settings.json`, and the project's
+  `./.claude/settings{.local,}.json`. Each distinct key found is tried in that order. Everything except the
+  balance line works without any key.
+
+  If you reach DeepSeek through a **relay** (your `ANTHROPIC_BASE_URL` is not `api.deepseek.com`), the token
+  in `ANTHROPIC_AUTH_TOKEN` is the relay's, and the DeepSeek balance API will reject it with a 401 — no key
+  search can fix that. Put a real DeepSeek platform key in `DEEPSEEK_API_KEY`. When the balance cannot be
+  shown, the segment says why (`余额 n/a(401)`), and `node scripts/ds.mjs --balance` prints a full diagnosis.
 
 ## Install
 
@@ -121,6 +129,7 @@ Both install and uninstall write a timestamped backup next to `settings.json` be
 | `/ds-usage` | Dashboard: balance, session cost with peak/off-peak split, tokens, cache hit rate, current rates |
 | `/ds-peak` | Just the peak state, the Beijing clock, and the rate in effect |
 | `scripts/ds.mjs --short / --json` | One-liner / machine-readable output (handy for scripts) |
+| `scripts/ds.mjs --balance` | **Balance doctor**: effective base URL, every key source (masked), each attempt's HTTP status, backoff, and a concrete fix. Add `--cached` to skip the network probe |
 
 ## The cost model
 
@@ -164,6 +173,10 @@ cannot give two parts two different triggers:
 The balance is fetched by a **detached background process** — the status line never waits on the network.
 Measured cost of the 1-second default: ~5% of one core idle, ~8–11% while actively editing files. Raise
 `refreshInterval` if that bothers you; the segment still works, the seconds just jump.
+
+A failed balance fetch **backs off** rather than retrying forever (6 h on an auth rejection, 30 min on an
+unparsable response, 30 s on a network error; no key means no attempt at all). Pasting a corrected key takes
+effect immediately, because the backoff is tied to a fingerprint of the key that failed.
 
 The frame is invalidated by the transcript's `size`+`mtime`, the HUD config's `mtime`, the model id and the
 context window — deliberately *not* by hashing the whole statusline payload, which contains a

@@ -28,10 +28,10 @@ Read this before touching `scripts/statusline.mjs` or re-vendoring the HUD.
 | --- | --- | --- |
 | `scripts/statusline.mjs` | Status-line entry point. Runs the HUD, appends our segments, owns the frame cache and the cheap/full split. | yes |
 | `scripts/peak-hours.cjs` | **Single source of truth** for peak windows, the Chinese holiday table, official rates, and cost arithmetic. | yes |
-| `scripts/ds-usage.cjs` | Transcript scan (official-rate pricing), balance cache, background balance fetch, segment text/colour. | yes |
-| `scripts/ds.mjs` | CLI behind `/ds-usage` and `/ds-peak`; `--short`, `--json`, `--peak`, `--refresh`. | yes |
-| `scripts/fetch-balance.mjs` | Detached process that fetches the balance once and writes the cache. | yes |
-| `scripts/selfcheck.mjs` | 28 offline assertions: peak boundaries, cost math, vendored integrity, entry smoke test. | yes |
+| `scripts/ds-usage.cjs` | Transcript scan (official-rate pricing), key-source resolution, balance record/cache, background balance fetch, reason codes and backoff, segment text/colour. | yes |
+| `scripts/ds.mjs` | CLI behind `/ds-usage` and `/ds-peak`; `--short`, `--json`, `--peak`, `--refresh`, `--balance` (read-only diagnostics). | yes |
+| `scripts/fetch-balance.mjs` | Detached process that fetches the balance once and writes the **record** (value or reason) to the cache. | yes |
+| `scripts/selfcheck.mjs` | 52 offline assertions: peak boundaries, cost math, vendored integrity, key resolution, balance-failure fallbacks, entry smoke test. | yes |
 | `install.mjs` / `uninstall.mjs` | Copy runtime files, then set/remove `statusLine` in `settings.json` (with backups). | yes |
 | `commands/*.md` | `/ds-setup`, `/ds-usage`, `/ds-peak`. | yes |
 | `tools/vendor-upstream.mjs` | Re-vendors the HUD from a pinned upstream tag. | yes |
@@ -69,6 +69,21 @@ message and tool call.
 inside a command that Claude Code runs on every event — the status line would visibly lag. Instead
 `refreshAccount()` checks a lock file and spawns `fetch-balance.mjs` detached; the render always uses the
 cached value (with its age shown, and a ⚠ when it is older than 150 s).
+
+**The key is resolved from many sources, and each candidate is tried.** A key can live in the process env
+(`DEEPSEEK_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`), in managed settings, in
+`~/.claude/settings{.local,}.json`, or in a project's `./.claude/settings{.local,}.json` — `settings.local.json`
+first within each level, matching Claude Code's own precedence. Candidates are deduped by value and tried
+in order, **stopping at the first usable 200**. Only 401/403 moves on to the next candidate: a timeout, a 5xx,
+or an unparsable body is a host-level problem that another key cannot fix. Worst case is 3 attempts; the
+ordinary single-key case is one request, exactly as before.
+
+**Failures are recorded, not swallowed.** `fetch-balance.mjs` writes the outcome either way, including a
+reason code (`nokey` / `auth` / `http` / `parse` / `net` / `unknown`) and a `retryAt`. The renderer shows the
+reason only when it has **no usable value at all**; if a last-good reading exists it keeps rendering that,
+per the house rule in §8. `retryAt` carries a **key fingerprint**, and the backoff is ignored whenever the
+head candidate's fingerprint changed — so pasting a corrected key takes effect on the next tick instead of
+waiting out a 6-hour `auth` backoff. That escape hatch is the whole reason a hard backoff is safe here.
 
 ## 4. Why the HUD is vendored, not patched, not depended on
 
@@ -131,6 +146,11 @@ At the 1-second default that is ~5% of one core while idle, ~8–11% while activ
 `refreshInterval` (the dominant term), `COST_TTL_MS`, `FRAME_TTL_MS`, `BALANCE_TTL_MS`. `install.mjs
 --refresh-interval N` rewrites the setting.
 
+**What the reason codes and backoff buy.** Before, a permanently-wrong key produced no value, so
+`refreshAccount()` re-spawned the fetcher on every full run, throttled only to 15 s: roughly **240 process
+spawns and 240 HTTPS requests per hour, all failing**. With `auth` at 6 h that is **1 spawn / 6 h**, and
+`nokey` spawns nothing at all. `DS_CACHE_DIR` redirects the cache (used by selfcheck, handy for debugging).
+
 Node's module-resolution note: the repo sets `"type": "module"` in `package.json` so that the vendored
 `.js` files load as ESM directly; without it Node re-parses 60 files on every tick
 (`MODULE_TYPELESS_PACKAGE_JSON`).
@@ -143,36 +163,62 @@ Node's module-resolution note: the repo sets `"type": "module"` in `package.json
 | HUD config broken / HUD throws | Keep the **last good frame**; if there has never been one, print only our segment. |
 | Empty stdin (Claude Code's settings verification) | Print nothing, exit 0. |
 | No `transcript_path` / unreadable transcript | Cost and tokens stay at their last values; peak/clock still render. |
-| No API key, offline, or API error | Balance segment is omitted (the CLI says "retrying in background"); everything else works. |
+| Balance unavailable, **no** usable value ever | Segment shows `余额 n/a(reason)` — `无key` / `401` / `网络` / `异常` (`no-key` / `401` / `network` / `resp` in English). |
+| Balance unavailable, but a last-good value exists | Keep showing that value (with its age, and ⚠ past 150 s). **The reason is not appended to it** — that keeps the success path byte-identical and follows "degrade to the last good value". Use `--balance` for the reason. |
 | Year without a holiday table | Peak/off-peak from weekends+hours only, badge marked `?`, warning in `/ds-peak`. |
 | `CLAUDE_HUD_DISABLE=1` | Whole status line silent (upstream's documented escape hatch) — respected. |
 | `DS_PEAK_DISABLE=1` | Our segments are omitted; the HUD frame still renders. |
 
 ## 9. Privacy and security posture
 
-- The API key is **read** from `settings.json` (`env.ANTHROPIC_AUTH_TOKEN`, or `DEEPSEEK_API_KEY`) at
-  runtime and used only for `GET https://api.deepseek.com/user/balance`. It is never written, logged, or
-  copied anywhere.
+- The API key is **read** at runtime from the sources listed in §3 (process env, managed settings,
+  `~/.claude/settings{.local,}.json`, project `./.claude/settings{.local,}.json`) and used only for
+  `GET https://api.deepseek.com/user/balance`. It is never written, logged, or copied anywhere.
+- **The key is never passed to the detached child** — not on argv, not via the environment. It would show up
+  in the process table (Task Manager's command-line column, `ps aux`). The child re-resolves it itself.
+- `settings.apiKeyHelper` is **detected and reported** by `--balance` but never executed: running an
+  arbitrary shell command from a process that fires every 15 s is a performance and security problem.
+- `--balance` prints keys **masked** (at most 10 characters revealed, and short keys fully hidden) plus a
+  truncated SHA-256 fingerprint for cross-machine comparison. It never prints a full key. It is also
+  strictly read-only: no spawn, no cache writes.
 - The only network call in the whole project is that balance request. No telemetry, no update checks.
 - `cache/` (balance, cost baseline, frame) is gitignored; it contains your balance and session cost but no
-  key material.
+  key material. `balance.json` may hold a **fingerprint** of the key that failed — 8 hex characters of a
+  SHA-256, not reversible to the key.
 - `install.mjs` touches exactly one key (`statusLine`) and backs up `settings.json` first; it never edits
   `hooks` — the thing the older npm monitors got wrong.
 
 ## 10. Tests and manual verification
 
 ```sh
-node scripts/selfcheck.mjs            # 28 offline assertions (peak math, cost math, vendor integrity, entry)
+node scripts/selfcheck.mjs            # 52 offline assertions (peak math, cost math, vendor integrity, keys, balance, entry)
 node scripts/selfcheck.mjs --verbose  # show each assertion
 ```
+
+The balance path is covered **offline**: the key resolvers take injectable `{claudeDir, env, cwd, managed}`
+and `fetchBalance` takes an injectable transport, so 200 / 401 / 5xx / network-error / unparsable-body are all
+simulated without touching the network. That injection is not incidental — `CLAUDE_DIR` is frozen at
+`require()` time, so a test that wants a different config dir has to pass it in. The two end-to-end checks
+spawn a child with `CLAUDE_CONFIG_DIR` and `DS_CACHE_DIR` pointed at a temp dir; nothing in the suite reads
+or writes your real `~/.claude`.
 
 What `selfcheck` deliberately does *not* cover, and how to check it by hand:
 
 - **A real status line render**: point `CLAUDE_CONFIG_DIR` at a scratch directory, run `node install.mjs`,
   then start Claude Code with that config dir. This is the only way to exercise the actual TUI path.
-- **The balance path** (needs a key and network): `node scripts/ds.mjs --refresh`.
+- **One live success against a real DeepSeek platform key**: `node scripts/ds.mjs --balance`.
 - **Timing after a change**: `node scripts/selfcheck.mjs` will catch correctness, not budget — re-measure
   with the table in §7 if you touch the hot path.
+
+### Diagnosing a balance that will not show
+
+`node scripts/ds.mjs --balance` (add `--cached` to skip the network probe, `--json` for machine-readable)
+prints the effective `ANTHROPIC_BASE_URL` and whether its host is `api.deepseek.com`, every key source with
+its state and a masked value, the fingerprint, each attempt's HTTP status, the last record and the backoff,
+and a concrete fix. The most common finding is the one worth knowing about: a **relay** base URL means
+`ANTHROPIC_AUTH_TOKEN` is the relay's token, which `api.deepseek.com` rejects with 401 — no key search will
+fix that, the user needs a real DeepSeek platform key in `DEEPSEEK_API_KEY`. Exit code is 1 on `auth`, 0
+otherwise, so scripts can branch on it.
 
 ## 11. Maintenance checklist
 

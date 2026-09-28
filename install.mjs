@@ -164,6 +164,7 @@ if (DRY) {
   log('  ✨ 装好了。下一条消息起状态栏就会变（不用重启）。');
   log('');
   log('  自检：    node ' + join(DEST, 'scripts', 'ds.mjs') + ' --peak');
+  log('  余额排障：node ' + join(DEST, 'scripts', 'ds.mjs') + ' --balance');
   log('  卸载：    node ' + join(ROOT, 'uninstall.mjs'));
   log('  关掉本段（只留 HUD）：在环境变量里设 DS_PEAK_DISABLE=1');
   log('  关掉整条状态栏：    CLAUDE_HUD_DISABLE=1');

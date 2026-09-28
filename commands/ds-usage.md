@@ -17,6 +17,15 @@ Useful flags to pass through `$ARGUMENTS` when the user asks for them:
 - `--transcript <path.jsonl>` — a specific session instead of the newest one
 - `--en` — English labels (default follows the system language: Chinese here)
 
+**If the balance is not showing**, run `--balance` — it is the diagnostic for exactly that. It prints the
+effective `ANTHROPIC_BASE_URL` and whether it points at `api.deepseek.com`, every key source with a masked
+value, each attempt's HTTP status, the backoff, and a concrete fix. Add `--cached` to skip the network probe.
+It is read-only (no background process, no cache writes) and never prints a full key, so its output is safe
+to paste. The usual finding: the base URL is a **relay**, so `ANTHROPIC_AUTH_TOKEN` is the relay's token and
+DeepSeek rejects it with 401 — the fix is a real DeepSeek platform key in `DEEPSEEK_API_KEY`. Exit code is 1
+when the key was rejected, 0 otherwise. When the balance does render, `余额 n/a(<reason>)` names the cause
+inline (`无key` / `401` / `网络` / `异常`).
+
 If the script is not installed yet (no `~/.claude/ds-statusline/`), tell the user to run `/ds-setup`
 first, or run it directly from the plugin root: `node "${CLAUDE_PLUGIN_ROOT}/scripts/ds.mjs"`.
 

@@ -1,6 +1,6 @@
 {
   "name": "ds-statusline",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DeepSeek peak/off-peak hours, the live Beijing clock, official-price session cost and account balance in the Claude Code status line",
   "author": {
     "name": "yuchigaocen",
