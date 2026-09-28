@@ -43,9 +43,12 @@ if (!existsSync(SETTINGS)) {
     process.exit(1);
   }
   const cmd = settings.statusLine?.command ?? '';
+  // 两种分隔符都要认：install.mjs 现在写正斜杠（官方要求），老版本写的是反斜杠。
+  // 只比一种，Windows 上就会把"自己装的"判成"别人的"，于是静默拒绝卸载。
+  const isOurs = cmd.includes(DEST) || cmd.includes(DEST.replace(/\\/g, '/'));
   if (!cmd) {
     console.log('  settings.json 里本来就没有 statusLine，跳过');
-  } else if (!cmd.includes(DEST)) {
+  } else if (!isOurs) {
     console.log('  ⚠️ 当前 statusLine 不是本插件装的，不动它：');
     console.log(`     ${cmd}`);
     console.log('     若要强制摘掉，请手动编辑 settings.json。');

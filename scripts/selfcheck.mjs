@@ -434,6 +434,27 @@ check('安装器 dry-run 能跑，并交代 HUD 配置怎么处理', () => {
   ok(/HUD 配置/.test(out), 'dry-run 输出里没说 HUD 配置是写还是保留');
   return /已有 HUD 配置/.test(out) ? '本机已有配置 → 保留' : '本机无配置 → 会写一份默认';
 });
+// 回归测试：安装目录里若不写 package.json，内嵌 HUD 的 .js 就不被当作 ESM，
+// 老一点的 Node（没有模块语法自动探测）上状态栏整排空白且不报错。见 install.mjs 的注释。
+check('安装副本自带 package.json，且在没有模块自动探测的 Node 上仍能渲染', () => {
+  const s = scratch();
+  try {
+    execFileSync(process.execPath, [join(ROOT, 'install.mjs'), '--dest', s.dir, '--no-statusline', '--no-config'], { encoding: 'utf8' });
+    const pkg = JSON.parse(readFileSync(join(s.dir, 'package.json'), 'utf8'));
+    eq(pkg.type, 'module', '安装目录 package.json 的 type');
+    const major = Number(process.versions.node.split('.')[0]);
+    if (major < 22) return 'type=module（Node <22 本就没有自动探测，结构检查即已覆盖）';
+    const out = execFileSync(
+      process.execPath,
+      ['--no-experimental-detect-module', join(s.dir, 'scripts', 'statusline.mjs')],
+      { input: sample, encoding: 'utf8', env: { ...process.env, DS_CACHE_DIR: s.dir } },
+    );
+    ok(strip(out).trim().length > 0, '模拟老 Node 时安装副本渲染为空 —— package.json 大概没被写进去');
+    return 'type=module；模拟老 Node 条件下渲染非空';
+  } finally {
+    s.cleanup();
+  }
+});
 
 // ── 汇总 ──
 console.log('');

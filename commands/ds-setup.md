@@ -1,27 +1,25 @@
 ---
-description: Install/wire the DeepSeek status line into Claude Code (writes settings.json statusLine, backs it up first)
+description: Install/wire the DeepSeek status line into Claude Code (runs the installer, then verifies the bar appears)
 ---
 
-Wire the DeepSeek status line into this machine's Claude Code config.
+Install the DeepSeek status line on this machine. Read `INSTALL.md` at the plugin root first — it is one page:
 
-Run the installer from the plugin root. It copies the runtime files to `~/.claude/ds-statusline/`,
-backs up `settings.json`, and sets **only** the `statusLine` key (hooks are left untouched):
+```
+Read "${CLAUDE_PLUGIN_ROOT}/INSTALL.md" and follow it.
+```
+
+Then install and confirm:
 
 ```sh
 node "${CLAUDE_PLUGIN_ROOT}/install.mjs"
 ```
 
-If the user wants to preview first, add `--dry-run`. If the shell cannot expand `${CLAUDE_PLUGIN_ROOT}`,
-ask the user for the plugin's install path (or find it under `~/.claude/plugins/`) and run `node <that path>/install.mjs`.
+It copies the runtime files to `~/.claude/ds-statusline/`, backs up `settings.json`, and sets **only** the
+`statusLine` key — `hooks` are never touched. If the shell cannot expand `${CLAUDE_PLUGIN_ROOT}`, ask the user
+for the plugin's install path (usually under `~/.claude/plugins/`) and run `<that path>/install.mjs`.
 
-After it finishes:
-
-1. Show the user the exact `statusLine.command` the installer printed, plus the `refreshInterval` it wrote
-   (default 1 second — that is what makes the peak countdown and clock tick; mention it can be raised to
-   lower CPU cost).
-2. Tell them it takes effect on the next statusline refresh (no restart needed), and give them the
-   one-off self check: `node ~/.claude/ds-statusline/scripts/ds.mjs --peak`.
-3. If they use a config manager that rewrites `settings.json` (e.g. a provider switcher), warn that it may
-   overwrite the `statusLine` key, and that the backup file next to `settings.json` has the original value.
+After it prints, ask the user to confirm the bottom line of their window shows the bar. If it does, say so in a
+sentence and stop — no progress narration, no extra checks. Only if it does **not** appear, work through
+`INSTALL.md` §"If nothing appears".
 
 To remove it later: `node "${CLAUDE_PLUGIN_ROOT}/uninstall.mjs"`.

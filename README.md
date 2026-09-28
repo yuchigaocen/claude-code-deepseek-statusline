@@ -38,7 +38,10 @@ This project prices every assistant message with the official DeepSeek rates usi
 
 ## Requirements
 
-- **Node ≥ 18**
+- **Node ≥ 18.** The vendored HUD is upstream ESM in `.js` files, so the install directory needs a
+  `{"type": "module"}` `package.json` beside it — the installer writes one, and the playbook tells an agent to.
+  Without it, older Node resolves those files as CommonJS and the status line renders **nothing at all**, with
+  no error visible anywhere (see [INSTALL.md](INSTALL.md#if-nothing-appears)).
 - **Claude Code** with a DeepSeek backend — i.e. `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`
   and your DeepSeek key in the `ANTHROPIC_AUTH_TOKEN` env var of `settings.json`
 - The balance line needs a **DeepSeek platform key**. It is looked for in many places, in this order:
@@ -54,7 +57,7 @@ This project prices every assistant message with the official DeepSeek rates usi
 
 ## Install
 
-**From a clone** (recommended — one step, no plugin system involved):
+From a clone:
 
 ```sh
 git clone https://github.com/yuchigaocen/claude-code-deepseek-statusline
@@ -66,13 +69,17 @@ The installer copies the runtime files to `~/.claude/ds-statusline/`, backs up `
 **only** the `statusLine` key. **Your `hooks` are never touched** — unlike some statusline packages, this
 one has nothing to say about your hooks.
 
+Two things the installer cannot see — a provider switcher that rebuilds `settings.json`, and the
+`package.json` the install directory needs so older Node loads the bundled HUD — are covered in
+[INSTALL.md](INSTALL.md) (one page; worth a skim on a machine with either).
+
 It also sets `statusLine.refreshInterval` (default `1`, seconds). That is what makes the countdown and the
 clock tick every second; `--refresh-interval 2` halves the CPU cost, `--refresh-interval 0` leaves you with
 event-driven refreshes only.
 
 **As a Claude Code plugin** (gives you `/ds-setup`, `/ds-usage`, `/ds-peak`; note that a plugin manifest
-*cannot* wire `statusLine` — Claude Code only accepts it from `settings.json` — so `/ds-setup` is what
-actually installs it):
+*cannot* wire `statusLine` — Claude Code only accepts it from `settings.json` — so `/ds-setup`, which reads
+runs the installer and then checks the bar appears, is what actually installs it):
 
 ```
 /plugin marketplace add yuchigaocen/claude-code-deepseek-statusline
@@ -103,10 +110,16 @@ Knobs worth knowing — all of them live in that file:
 ```sh
 node ~/.claude/ds-statusline/scripts/ds.mjs --peak     # peak state, next switch, current rates
 node ~/.claude/ds-statusline/scripts/ds.mjs            # full dashboard
+node ~/.claude/ds-statusline/scripts/ds.mjs --balance  # read-only key/endpoint/balance check; masks the key
 ```
 
-The status line itself updates on the next refresh — no restart needed. To try it without touching your
-real config, point `CLAUDE_CONFIG_DIR` at a scratch directory and run the installer with `--dest`:
+The status line itself redraws on the next interaction — no restart needed in most cases. If it does not
+appear, restart Claude Code once; if it still does not, [INSTALL.md](INSTALL.md#if-nothing-appears)
+lists the verified causes (workspace trust, `disableAllHooks`, Windows path separators) and how to tell them
+apart with `claude --debug`.
+
+To try it without touching your real config, point `CLAUDE_CONFIG_DIR` at a scratch directory and run the
+installer with `--dest` (POSIX shell shown; in PowerShell set `$env:CLAUDE_CONFIG_DIR` first):
 
 ```sh
 CLAUDE_CONFIG_DIR=/tmp/scratch node install.mjs && CLAUDE_CONFIG_DIR=/tmp/scratch claude
@@ -192,7 +205,10 @@ Design rationale, failure modes, performance budget and the maintenance checklis
 - Anthropic-flavoured usage bars are switched off: DeepSeek has no rate-limit/usage API to fill them, and
   upstream's cost estimate uses Anthropic prices. We show the DeepSeek numbers instead.
 - If you use a config manager that rewrites `settings.json` (provider switchers, for instance), it may drop
-  the `statusLine` key. The timestamped backup next to `settings.json` has the value to restore.
+  the `statusLine` key — typically because it rebuilds that file from its own *common config* plus the active
+  provider's profile. Put `statusLine` in the common config, not just in `settings.json`
+  ([INSTALL.md](INSTALL.md#two-things-the-installer-cannot-see)); the timestamped backup next to `settings.json` still has
+  the value to restore.
 - `scripts/ds.mjs` prices the session from Claude Code's transcript. It cannot see traffic that never
   reached a transcript (other tools using the same key), so it is *session* cost, not account spend.
 

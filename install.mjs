@@ -96,6 +96,13 @@ if (!DRY) {
   try {
     writeFileSync(join(DEST, 'VERSION'), readFileSync(join(ROOT, 'package.json'), 'utf8').match(/"version":\s*"([^"]+)"/)?.[1] + '\n');
   } catch { /* 没有 package.json 就算了 */ }
+  // 必须有：内嵌 HUD 是上游的 ESM 代码，文件名却是 .js —— 它算不算 ESM，取决于最近的
+  // package.json 的 type 字段。安装目录里没有这个文件时，能不能跑就全看 Node 的
+  // "模块语法自动探测"（Node ≥22.7 带旗标 / ≥23 默认）。老一点的 Node 上，
+  // statusline.mjs 第 146 行那次 import() 会直接抛错 —— 而 stderr 不进状态栏，
+  // 于是症状是"状态栏整排空白、什么都不报"。（ds.mjs 也 import 同一处，但在 try/catch 里，
+  // 所以 --balance 一直是正常的，会把人往错的方向带。）
+  writeFileSync(join(DEST, 'package.json'), '{\n  "type": "module"\n}\n');
 }
 say('✅', `拷入 ${copied.filter((c) => statSync(join(ROOT, c)).isDirectory()).map((c) => `${c}/`).join(' ')} 等 ${copied.length} 项`);
 
@@ -118,7 +125,11 @@ if (SKIP_CONFIG) {
 }
 
 // ── 4. 接上 statusLine ──
-const command = `"${NODE}" "${join(DEST, 'scripts', 'statusline.mjs')}"`;
+// 正斜杠是硬要求：Claude Code 在 Windows 上经 Git Bash 执行这条命令，官方文档原话
+// "On Windows, write any file path inside the command string with forward slashes" ——
+// 未加引号的反斜杠会被 Git Bash 当转义吃掉。反斜杠在有的机器上碰巧能用，但不是能依赖的行为。
+const fwd = (p) => p.replace(/\\/g, '/');
+const command = `"${fwd(NODE)}" "${fwd(join(DEST, 'scripts', 'statusline.mjs'))}"`;
 if (SKIP_STATUSLINE) {
   say('⏭', '--no-statusline：跳过 settings.json，请自行把下面这行写进 statusLine.command：');
   log(`     ${command}`);
@@ -149,7 +160,10 @@ if (SKIP_STATUSLINE) {
   say('✅', `statusLine ${before === after ? '已是目标值（未变）' : '已写入'}`);
   log(`     command         ${command}`);
   log(`     refreshInterval ${refreshInterval > 0 ? `${refreshInterval} 秒（每秒刷新让峰谷/时钟走起来；0 = 不加定时器）` : '未设置（只在事件驱动时刷新）'}`);
-  if (before !== 'null' && !before.includes(DEST.replace(/\\/g, '\\\\'))) {
+  // 判断"原本的 statusLine 是不是我们装的"时，两种分隔符都认（老版本写的是反斜杠）
+  const destBack = JSON.stringify(DEST).slice(1, -1);
+  const destSlash = DEST.replace(/\\/g, '/');
+  if (before !== 'null' && !before.includes(destBack) && !before.includes(destSlash)) {
     say('⚠️', `原本的 statusLine 指向别处，已被覆盖（备份里有原值）：${before}`);
   }
   const hookKeys = Object.keys(settings.hooks ?? {});
@@ -161,7 +175,10 @@ log('');
 if (DRY) {
   log('  dry-run 结束。去掉 --dry-run 就会真的写盘。');
 } else {
-  log('  ✨ 装好了。下一条消息起状态栏就会变（不用重启）。');
+  log('  ✨ 装好了：statusLine 已写进 settings.json，下一次交互后状态栏就会重绘。');
+  log('     没看到那排字？先重启一次 Claude Code；仍在，就让你的 Claude 读 INSTALL.md 排障。');
+  log('     （脚本只能猜环境。让 Claude 按 INSTALL.md 做，它会现场查明这台机器真正生效的配置，');
+  log('       再验证一次渲染 —— 装完打印"✅"并不等于状态栏真的会出现。）');
   log('');
   log('  自检：    node ' + join(DEST, 'scripts', 'ds.mjs') + ' --peak');
   log('  余额排障：node ' + join(DEST, 'scripts', 'ds.mjs') + ' --balance');

@@ -26,8 +26,9 @@ DeepSeek rejects it with 401 — the fix is a real DeepSeek platform key in `DEE
 when the key was rejected, 0 otherwise. When the balance does render, `余额 n/a(<reason>)` names the cause
 inline (`无key` / `401` / `网络` / `异常`).
 
-If the script is not installed yet (no `~/.claude/ds-statusline/`), tell the user to run `/ds-setup`
-first, or run it directly from the plugin root: `node "${CLAUDE_PLUGIN_ROOT}/scripts/ds.mjs"`.
+If the script is not installed yet (no `~/.claude/ds-statusline/`), tell the user to run `/ds-setup` first
+(it follows `INSTALL.md` on this machine), or run it directly from the plugin root:
+`node "${CLAUDE_PLUGIN_ROOT}/scripts/ds.mjs"`.
 
 Report the numbers as-is — the cost figures are computed from the session transcript with DeepSeek's
 official CNY rates (peak/off-peak and cache hit/miss priced separately), not estimated.

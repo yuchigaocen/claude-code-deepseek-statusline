@@ -33,7 +33,10 @@
 
 ## 依赖
 
-- **Node ≥ 18**
+- **Node ≥ 18**。内嵌的 HUD 是上游的 ESM 代码、文件名却是 `.js`，所以安装目录里必须有
+  一个 `{"type": "module"}` 的 `package.json` —— 安装器会写一份，任务书也会让代理写一份。
+  少了它，老一点的 Node 会把那些文件当 CommonJS，**状态栏整排什么都不渲染，而且哪里都不报错**
+  （见 [INSTALL.md](INSTALL.md#if-nothing-appears)）。
 - **Claude Code** 走 DeepSeek 后端：`ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic`，
   密钥放在 `settings.json` 的 `ANTHROPIC_AUTH_TOKEN`
 - 只有余额那一段需要密钥，且要的是 **DeepSeek 平台密钥**。查找顺序：`DEEPSEEK_API_KEY` →
@@ -48,7 +51,7 @@
 
 ## 安装
 
-**从 clone 装**（推荐，一步到位，不经过插件系统）：
+从 clone 装：
 
 ```sh
 git clone https://github.com/yuchigaocen/claude-code-deepseek-statusline
@@ -59,11 +62,15 @@ node install.mjs
 安装器把运行时文件拷到 `~/.claude/ds-statusline/`，**先备份** `settings.json`，然后**只改 `statusLine` 一个键**。
 **绝不碰 `hooks`** —— 有些状态栏包的安装脚本会删掉你的 `SessionStart` 钩子，这个不会。
 
+安装器看不到的两件事 —— 会重建 `settings.json` 的供应商切换器，以及安装目录必须自带的 `package.json`
+（少了它老版本 Node 加载不了内嵌 HUD）—— 都写在 [INSTALL.md](INSTALL.md) 里（一页纸；两者沾一个就值得先看一眼）。
+
 同时会写 `statusLine.refreshInterval`（默认 `1` 秒）。倒计时和时钟能一秒一跳就是靠它；
 `--refresh-interval 2` 可省一半开销，`--refresh-interval 0` 表示不加定时器（只在事件驱动时刷新）。
 
 **作为 Claude Code 插件装**（能拿到 `/ds-setup`、`/ds-usage`、`/ds-peak` 三个命令；注意插件清单
-**无法**声明 `statusLine` —— Claude Code 只认 `settings.json`，所以真正接线的是 `/ds-setup`）：
+**无法**声明 `statusLine` —— Claude Code 只认 `settings.json`，所以真正接线的是 `/ds-setup`，
+它会跑安装器、然后确认状态栏真的出现了）：
 
 ```
 /plugin marketplace add yuchigaocen/claude-code-deepseek-statusline
@@ -93,9 +100,15 @@ node install.mjs
 ```sh
 node ~/.claude/ds-statusline/scripts/ds.mjs --peak     # 峰谷状态、下次切换、当档费率
 node ~/.claude/ds-statusline/scripts/ds.mjs            # 完整大盘
+node ~/.claude/ds-statusline/scripts/ds.mjs --balance  # 只读体检：密钥来源/端点/余额，密钥已打码
 ```
 
-状态栏本身在下次刷新时就会变（不用重启）。想不动真实配置试一遍，把 `CLAUDE_CONFIG_DIR` 指到临时目录：
+状态栏本身在下次交互后就会重绘（多数情况不用重启）。**如果它没出现**，先重启一次 Claude Code；
+还是没有，就看 [INSTALL.md](INSTALL.md#if-nothing-appears) —— 里面列了已证实的几种原因
+（工作区未信任、`disableAllHooks`、Windows 路径分隔符），以及怎么用 `claude --debug` 把它们区分开。
+
+想不动真实配置试一遍，把 `CLAUDE_CONFIG_DIR` 指到临时目录（下面是 POSIX shell 写法；PowerShell 里先设
+`$env:CLAUDE_CONFIG_DIR`）：
 
 ```sh
 CLAUDE_CONFIG_DIR=/tmp/scratch node install.mjs && CLAUDE_CONFIG_DIR=/tmp/scratch claude
@@ -172,8 +185,10 @@ statusline 载荷，因为里面有 `cost.total_duration_ms` 这种每秒都变�
   想要中文就设 `{"language": "zh-Hans"}`；单次命令可用 `--zh` / `--en` 强制。
 - Anthropic 风格的用量条被关掉了：DeepSeek 没有对应的额度接口可填，上游的费用估算又按 Anthropic 价格算。
   我们改成显示 DeepSeek 自己的数字。
-- 如果你用会重写 `settings.json` 的配置管理器（比如供应商切换器），它可能会丢掉 `statusLine` 键。
-  旁边那份带时间戳的备份里存着要恢复的值。
+- 如果你用会重写 `settings.json` 的配置管理器（比如供应商切换器），它可能会丢掉 `statusLine` 键 ——
+  通常是因为它用自己的**公共配置 + 当前供应商档案**重新合成这个文件。把 `statusLine` 写进公共配置，
+  而不是只写进 `settings.json`（见 [INSTALL.md](INSTALL.md#two-things-the-installer-cannot-see)）；旁边那份带时间戳的
+  备份里仍然存着要恢复的值。
 - `scripts/ds.mjs` 是从 Claude Code 的转录算的，看不到没进转录的流量（别的工具用同一个 key），
   所以它是**会话**费用，不是账户总支出。
 

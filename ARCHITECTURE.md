@@ -31,9 +31,10 @@ Read this before touching `scripts/statusline.mjs` or re-vendoring the HUD.
 | `scripts/ds-usage.cjs` | Transcript scan (official-rate pricing), key-source resolution, balance record/cache, background balance fetch, reason codes and backoff, segment text/colour. | yes |
 | `scripts/ds.mjs` | CLI behind `/ds-usage` and `/ds-peak`; `--short`, `--json`, `--peak`, `--refresh`, `--balance` (read-only diagnostics). | yes |
 | `scripts/fetch-balance.mjs` | Detached process that fetches the balance once and writes the **record** (value or reason) to the cache. | yes |
-| `scripts/selfcheck.mjs` | 52 offline assertions: peak boundaries, cost math, vendored integrity, key resolution, balance-failure fallbacks, entry smoke test. | yes |
-| `install.mjs` / `uninstall.mjs` | Copy runtime files, then set/remove `statusLine` in `settings.json` (with backups). | yes |
-| `commands/*.md` | `/ds-setup`, `/ds-usage`, `/ds-peak`. | yes |
+| `scripts/selfcheck.mjs` | 53 offline assertions: peak boundaries, cost math, vendored integrity, key resolution, balance-failure fallbacks, entry smoke test. | yes |
+| `INSTALL.md` | One page of install notes: the installer, the two things it cannot see (a provider switcher, the install dir's `package.json`), and what to do if the bar does not appear. | yes |
+| `install.mjs` / `uninstall.mjs` | Manual/CI fallback: copy runtime files, then set/remove `statusLine` in `settings.json` (with backups). | yes |
+| `commands/*.md` | `/ds-setup` (runs the installer, then checks the bar appears), `/ds-usage`, `/ds-peak`. | yes |
 | `tools/vendor-upstream.mjs` | Re-vendors the HUD from a pinned upstream tag. | yes |
 | `vendor/claude-hud/` | The HUD, byte-identical to upstream (see `VENDORED.md`). | **no** — MIT, Jarrod Watts |
 
@@ -125,9 +126,36 @@ and the badge carries a `?` — a visible, honest degradation rather than a sile
 Established against Claude Code 2.1.283 (its bundled `plugin-dev` docs and the installed build):
 
 - A plugin **cannot** set `statusLine` (or any settings key). It is warned about and ignored in
-  `plugin.json`. So `install.mjs` (or `/ds-setup`) is what wires it — there is no manifest-only path.
+  `plugin.json`. So something on the user's side has to wire it — there is no manifest-only path.
 - Plugins get **no install-time hook**, and npm-sourced plugins are fetched with `--ignore-scripts`, so an
-  installer cannot ride along with `plugin install`. Hence: a repo you clone and run.
+  installer cannot ride along with `plugin install`. Hence: a repo you clone, or a folder you hand over.
+- **The installer is the install path; `INSTALL.md` covers the two things it cannot see.** `install.mjs` writes
+  the runtime files and one settings key, and that is the whole job on a clean single-config machine. It cannot
+  detect a config manager that synthesises `settings.json`, and it cannot know whether the bar actually
+  appeared — both are in `INSTALL.md`, one page, read by a human or their agent on the machine in question.
+  An agent-executed *playbook* (survey the machine, verify every layer, report) was written first and then
+  dropped: it spends the recipient's tokens to re-derive what the installer already knows, and the field
+  failures it was meant to catch turned out to be ordinary bugs (see the next two bullets) that belong in the
+  installer and in `selfcheck`, not in a document.
+- **The status line can be silently skipped.** Verified strings in the installed build: workspace trust not
+  accepted (`Skipping StatusLine command execution - workspace trust not accepted`), `disableAllHooks: true`
+  (`Status line is configured but disableAllHooks is true`), and — on Windows — path separators, since the
+  command runs through Git Bash ("write any file path inside the `command` string with forward slashes").
+  Only stdout is displayed, the default command timeout is 5 s, and runs are single-flight with a ~300 ms
+  debounce. An empty stdin produces empty output with exit 0, so "nothing on screen" **cannot** be diagnosed
+  by running the command alone — `claude --debug` is the discriminator (`INSTALL.md`).
+- **A config manager can synthesise `settings.json`.** Verified with CC Switch: the file is rebuilt from a
+  *common config* plus the active provider's profile, so a `statusLine` present only in `settings.json` is lost
+  at the next provider switch — the bar disappears while the backend keeps working. Write the common config.
+- **The vendored HUD is ESM living in `.js` files, so an install directory must declare its module type.**
+  A `.js` file counts as ESM only if the nearest `package.json` says `"type": "module"`. The repo has that; an
+  install directory has to be given it — hence `install.mjs` writes `DEST/package.json`. Without it,
+  `statusline.mjs`'s `await import(vendor/claude-hud/dist/index.js)` relies on Node's module-syntax
+  auto-detection (≥22.7 behind a flag, ≥23 by default). On anything older the import throws, stderr never
+  reaches the status line, and the result is **a silently blank bar while `ds.mjs --balance` stays green** —
+  that entry point's own `import` of `vendor/…/config.js` sits in a `try/catch`. This is the one dependency
+  that is invisible in a checkout and only shows up in an installed copy on an older Node; `selfcheck` now
+  reproduces it with `--no-experimental-detect-module` against a freshly installed copy.
 - Component paths in a manifest must be relative and `./`-prefixed; `${CLAUDE_PLUGIN_ROOT}` works inside
   command bodies, which is how the `/ds-*` commands find the scripts.
 - `refreshInterval` is a `statusLine` field (seconds, ≥1), documented as "in addition to event-driven
@@ -191,7 +219,7 @@ Node's module-resolution note: the repo sets `"type": "module"` in `package.json
 ## 10. Tests and manual verification
 
 ```sh
-node scripts/selfcheck.mjs            # 52 offline assertions (peak math, cost math, vendor integrity, keys, balance, entry)
+node scripts/selfcheck.mjs            # 53 offline assertions (peak math, cost math, vendor integrity, keys, balance, entry)
 node scripts/selfcheck.mjs --verbose  # show each assertion
 ```
 
@@ -204,8 +232,11 @@ or writes your real `~/.claude`.
 
 What `selfcheck` deliberately does *not* cover, and how to check it by hand:
 
-- **A real status line render**: point `CLAUDE_CONFIG_DIR` at a scratch directory, run `node install.mjs`,
-  then start Claude Code with that config dir. This is the only way to exercise the actual TUI path.
+- **A real status line render**: `INSTALL.md` has the short checklist — a synthetic payload through
+  `statusline.mjs` (must be non-empty), the read-only `--balance` probe, and finally a human looking at the
+  bottom line. For the TUI path itself, point `CLAUDE_CONFIG_DIR` at a scratch directory, run
+  `node install.mjs`, then start Claude Code with that config dir. If nothing renders, `INSTALL.md` lists
+  the verified gates and the `claude --debug` lines that tell them apart.
 - **One live success against a real DeepSeek platform key**: `node scripts/ds.mjs --balance`.
 - **Timing after a change**: `node scripts/selfcheck.mjs` will catch correctness, not budget — re-measure
   with the table in §7 if you touch the hot path.
@@ -227,4 +258,4 @@ otherwise, so scripts can branch on it.
 | Upstream `claude-hud` releases | `node tools/vendor-upstream.mjs --tag vX.Y.Z`, then `node scripts/selfcheck.mjs`, then eyeball a render. Check `VENDORED.md`'s diff note. |
 | State Council publishes next year's holidays (each November) | Add the ranges to `HOLIDAY_RANGES` in `scripts/peak-hours.cjs`, run `selfcheck`, re-install so `~/.claude/ds-statusline/` updates. |
 | DeepSeek changes prices | Update `RATES` in the same file (keys are `[peak, off-peak]`), run `selfcheck`. |
-| A config manager rewrites `settings.json` | Restore `statusLine` from the timestamped backup beside it (this is a per-user environment issue, not a bug here). |
+| A config manager rewrites `settings.json` | Put `statusLine` in the manager's **common config** so it survives provider switches (`INSTALL.md`); the timestamped backup beside `settings.json` restores a one-off loss. Not a bug here — the file belongs to the manager. |
