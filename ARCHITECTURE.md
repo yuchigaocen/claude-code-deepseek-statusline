@@ -147,6 +147,13 @@ Established against Claude Code 2.1.283 (its bundled `plugin-dev` docs and the i
 - **A config manager can synthesise `settings.json`.** Verified with CC Switch: the file is rebuilt from a
   *common config* plus the active provider's profile, so a `statusLine` present only in `settings.json` is lost
   at the next provider switch — the bar disappears while the backend keeps working. Write the common config.
+- **On Windows the status line runs through Git Bash, so Git is a hard prerequisite.** Verified strings in the
+  installed build: the command *is* executed through Git Bash (which is also why paths must use forward
+  slashes), and `Git Bash was not found. Install Git for Windows`. With no Git on the machine the command is
+  never executed and the bar is **blank with no error anywhere** — while the agent's own PowerShell commands
+  keep working, which is exactly what makes it look like a rendering bug. Field case: a machine with no Git at
+  all, where repeated reinstalls, a missing `package.json` and every other candidate were red herrings.
+  `install.mjs` now warns when it finds neither `git` nor a `bash.exe` in the usual spots.
 - **The vendored HUD is ESM living in `.js` files, so an install directory must declare its module type.**
   A `.js` file counts as ESM only if the nearest `package.json` says `"type": "module"`. The repo has that; an
   install directory has to be given it — hence `install.mjs` writes `DEST/package.json`. Without it,

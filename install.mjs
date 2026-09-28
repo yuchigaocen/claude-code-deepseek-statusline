@@ -16,8 +16,12 @@
  * 顺带处理内嵌 HUD 的配置（`<claude>/plugins/claude-hud/config.json`）：**只有它不存在时才写一份**
  * （紧凑布局 + 工具行 + 英文），因为上游默认是 expanded 布局且不显示工具行 —— 不写的话，
  * 陌生人装完看到的样子会跟 README 的预览图对不上，容易以为装坏了。已有配置**一律不动**。
+ *
+ * 另外会检查这台机器有没有 Git（Windows）—— 见第 4.5 步：Claude Code 在 Windows 上靠 Git Bash
+ * 执行状态栏命令，没有 Git 时命令**根本没人执行**，症状是"配置全对、状态栏整排空白、哪里都不报错"。
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
@@ -168,6 +172,31 @@ if (SKIP_STATUSLINE) {
   }
   const hookKeys = Object.keys(settings.hooks ?? {});
   if (hookKeys.length) say('ℹ️', `hooks 原样保留：${hookKeys.join(' / ')}`);
+}
+
+// ── 4.5 Windows：状态栏命令是经 Git Bash 执行的（没有 Git 就整排空白）──
+// Claude Code 官方文档原话是"命令经 Git Bash 执行"（这也是路径必须用正斜杠的原因），
+// 二进制里还能翻到 "Git Bash was not found. Install Git for Windows"。所以这台机器上若没有
+// Git，那条命令**根本没人执行**：配置对、渲染对、信任也对，状态栏照样整排空白，而且哪里都不报错。
+// 实测过一例（对方机器没装 Git）：反复重装、补 package.json 全都无效，装完 Git 重启才见分晓。
+if (process.platform === 'win32') {
+  const hasGit = (() => {
+    try { execFileSync('git', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; }
+  })();
+  const bashCandidates = [
+    join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin', 'bash.exe'),
+    join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Git', 'bin', 'bash.exe'),
+    join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'bin', 'bash.exe'),
+  ];
+  const hasBash = bashCandidates.some((p) => existsSync(p));
+  if (!hasGit && !hasBash) {
+    say('⚠️', '这台机器上找不到 Git / Git Bash —— 状态栏很可能不会出现。');
+    log('     Claude Code 在 Windows 上要靠 Git Bash 去执行 statusLine 命令：没有它，命令没人跑，');
+    log('     状态栏就整排空白，而且哪里都不报错（装多少遍都一样）。');
+    log('     装一个 Git for Windows，再**完全重启** Claude Code：');
+    log('       winget install --id Git.Git -e --source winget');
+    log('     （你自己的 Claude 用 PowerShell 跑命令是正常的 —— 那是另一条路子，不代表状态栏在跑。）');
+  }
 }
 
 // ── 5. 收尾 ──

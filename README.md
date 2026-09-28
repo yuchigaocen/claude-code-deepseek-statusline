@@ -38,6 +38,9 @@ This project prices every assistant message with the official DeepSeek rates usi
 
 ## Requirements
 
+- **On Windows: Git for Windows.** Claude Code executes `statusLine` through Git Bash, so without Git the
+  command is never run and the bar stays blank — silently. (Your own shell commands still work, which makes it
+  look like everything is fine.)
 - **Node ≥ 18.** The vendored HUD is upstream ESM in `.js` files, so the install directory needs a
   `{"type": "module"}` `package.json` beside it — the installer writes one, and the playbook tells an agent to.
   Without it, older Node resolves those files as CommonJS and the status line renders **nothing at all**, with

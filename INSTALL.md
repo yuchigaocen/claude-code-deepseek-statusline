@@ -15,6 +15,10 @@ node install.mjs
 Node ≥ 18. Keep the default destination `<config-dir>/ds-statusline/` — `/ds-usage` and `/ds-peak` hardcode it.
 Useful flags: `--dry-run`, `--refresh-interval 2` (halves CPU), `--no-config`, `--no-statusline`, `--dest <dir>`.
 
+**On Windows, check `git --version` first.** Claude Code runs the `statusLine` command through **Git Bash**;
+with no Git there is no shell to run it, and the bar is simply blank — the installer warns about this, and it is
+the one prerequisite a machine can be missing while everything else looks perfect.
+
 ## Two things the installer cannot see
 
 - **A config manager / provider switcher** (CC Switch and similar) rebuilds `settings.json` from its own
@@ -41,6 +45,7 @@ run `claude --debug` in that folder and look for exactly these strings:
 | `disableAllHooks is true` | that key suppresses the status line |
 | no `statusLine` lines at all | the config being read is not the one you wrote (a switcher, or a different `CLAUDE_CONFIG_DIR`) |
 | the command runs but prints nothing | the install directory is missing its `package.json` (above) |
+| on Windows nothing runs at all, and the agent's own PowerShell commands work fine | no **Git → no Git Bash**. Claude Code needs it to execute the command (binary string: `Git Bash was not found. Install Git for Windows`). Install Git, restart Claude Code fully. |
 
 If none of that explains it, then collect these two outputs and hand them over verbatim:
 

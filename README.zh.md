@@ -33,6 +33,8 @@
 
 ## 依赖
 
+- **Windows 上还需要 Git for Windows**。Claude Code 是**经 Git Bash** 执行 `statusLine` 命令的；
+  没有 Git 就没有 shell 去跑它，状态栏会一直空白且**不报错**（而你自己敲的命令照常能跑，很容易误判成"一切正常"）。
 - **Node ≥ 18**。内嵌的 HUD 是上游的 ESM 代码、文件名却是 `.js`，所以安装目录里必须有
   一个 `{"type": "module"}` 的 `package.json` —— 安装器会写一份，任务书也会让代理写一份。
   少了它，老一点的 Node 会把那些文件当 CommonJS，**状态栏整排什么都不渲染，而且哪里都不报错**
